@@ -5,7 +5,7 @@ import aiohttp as aiohttp
 from aiolimiter import AsyncLimiter
 from pyrogram import Client, filters
 from pyrogram.handlers import MessageHandler, InlineQueryHandler
-from pyrogram.types import InputMediaPhoto, InlineQueryResultPhoto
+from pyrogram.types import InputMediaPhoto, InlineQueryResultPhoto, InlineQueryResultArticle, InputTextMessageContent
 
 
 class Bot:
@@ -48,9 +48,17 @@ class Bot:
         if not inline_query.query:
             return
         search_results = await self.search_card_from_scryfall(inline_query.query)
-        print(f"found {search_results['total_cards']} cards")
         query_results = []
-        if not search_results['data']:
+        if "data" not in search_results:
+            await inline_query.answer(
+                [
+                    InlineQueryResultArticle(
+                        title=f"No results found for query {inline_query.query}",
+                        input_message_content=InputTextMessageContent(
+                            message_text=f"query {inline_query.query} returned no results")
+                    )
+                ]
+            )
             return
         for result in search_results["data"]:
             if "image_uris" in result:
@@ -76,7 +84,7 @@ class Bot:
             query_results.append(InlineQueryResultPhoto(img_url, title=result["name"], caption=caption))
             print(f"name={result['name']}, imgurl = {img_url}")
 
-        await inline_query.answer(results=query_results[:50], is_gallery=True, cache_time=0)
+        await inline_query.answer(results=query_results[:50], is_gallery=True)
 
     async def find_card(self, card):
         edition = ""
