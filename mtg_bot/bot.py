@@ -44,7 +44,7 @@ class Bot:
                 await self.post_card_from_json(card_json, message)
 
     async def process_inline_query(self, client, inline_query):
-        print(f"recieved query {inline_query.query}")
+        print(f"recieved inline query: {inline_query.query}")
         if not inline_query.query:
             return
         search_results = await self.search_card_from_scryfall(inline_query.query)
@@ -103,8 +103,8 @@ class Bot:
             card_json = await resp.json()
         return card_json
 
-    async def search_card_from_scryfall(self, query, sorting="name", order="asc"):
-        url = f"https://api.scryfall.com/cards/search?order={sorting}&dir={order}&q={query}"
+    async def search_card_from_scryfall(self, query):
+        url = f"https://api.scryfall.com/cards/search?&q={query}"
         async with self.limited_fetch(url) as resp:
             search_json = await resp.json()
         return search_json
