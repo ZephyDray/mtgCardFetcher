@@ -36,6 +36,7 @@ class Bot:
 
     async def process_message(self, client, message):
         card_names = [match.group(1) for match in re.finditer(r"\[(.+?)]", message.text)]
+        print(f"searching for cards: {card_names}")
         for card in card_names:
             card_json = await self.find_card(card)
             if card_json["object"] == "error":
@@ -65,25 +66,11 @@ class Bot:
                 img_url = result["image_uris"]["normal"]
             else:
                 img_url = result["card_faces"][0]["image_uris"]["normal"]
-            caption = result["name"] + "\n"
-            buttons = []
-            if "gatherer" in result["related_uris"]:
-                buttons.append(["(G)", result["related_uris"]["gatherer"]])
-            buttons.extend(
-                [
-                    ["(SF)", result["scryfall_uri"]],
-                    ["(EDHREC)", result["related_uris"]["edhrec"]]
-                ]
-            )
-
-            for button in buttons:
-                caption += f"<a href=\"{button[1]}\">{button[0]}</a> "
-            card_text = []
-            rulings = []
+            caption = await self.generate_caption(result)
 
             query_results.append(InlineQueryResultPhoto(img_url, title=result["name"], caption=caption))
-            print(f"name={result['name']}, imgurl = {img_url}")
-
+            # print(f"name={result['name']}, imgurl = {img_url}")
+        print(f"found {len(query_results)} cards for query {inline_query.query}")
         await inline_query.answer(results=query_results[:50], is_gallery=True)
 
     async def find_card(self, card):
@@ -109,7 +96,7 @@ class Bot:
             search_json = await resp.json()
         return search_json
 
-    async def post_card_from_json(self, card, message):
+    async def generate_caption(self, card):
         caption = card["name"] + "\n"
         buttons = []
         if "gatherer" in card["related_uris"]:
@@ -125,10 +112,14 @@ class Bot:
             caption += f"<a href=\"{button[1]}\">{button[0]}</a> "
         card_text = []
         rulings = []
+        return caption
 
+    async def post_card_from_json(self, card, message):
+        caption = await self.generate_caption(card)
+        print(f"attempting to post card {card['name']}")
         if "card_faces" in card:
-            image = [InputMediaPhoto(x["image_uris"]["png"]) for x in card["card_faces"]]
-            image[0].caption = caption
+            image = [InputMediaPhoto(x["image_uris"]["normal"]) for x in card["card_faces"]]
+            image[-1].caption = caption
             await self.client.send_media_group(
                 chat_id=message.chat.id, media=image, reply_to_message_id=message.id
             )
@@ -137,8 +128,6 @@ class Bot:
             await self.client.send_photo(
                 chat_id=message.chat.id, photo=image, caption=caption, reply_to_message_id=message.id
             )
-
-        pass
 
     @asynccontextmanager
     async def limited_fetch(self, url):
